@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	uuid "github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -128,10 +128,25 @@ func (s *Sender) Send(order Order) error {
 	return nil
 }
 
-func MarshalBody[T any](b T) ([]byte, error) {
-	body, err := json.Marshal(b)
-	if err != nil {
-		return []byte("conversion err"), err
+func (sender *Sender) sendOrders() {
+	var name string
+	var err error
+	//for testing: i := 0; i <= 15; i++
+	for {
+		name, err = fetchOrders()
+		if err != nil {
+			log.Fatalln("GenerateOrder Error:", err)
+			continue
+		}
+
+		if err := sender.Send(Order{
+			uuid.New(),
+			fmt.Sprint("Order ", name),
+			name,
+		}); err != nil {
+			log.Println(err)
+		}
+
+		time.Sleep(15 * time.Second)
 	}
-	return body, err
 }

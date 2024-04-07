@@ -2,6 +2,7 @@ version: "3.8"
  
 services:
   rabbit:
+    container_name: rabbit
     image: "rabbitmq:3.8.3-management-alpine"
     expose:
       - "15672"
@@ -27,5 +28,24 @@ services:
       - "./cert:/cert"
       # - "./conf/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"
   receiver:
+    depends_on: rabbit
+    restart: always
+    container_name: receiver
     build: ./receiver
-    
+    # ports:
+    #   - "5672:5672"
+    environment:
+      QUEUE_HOSTNAME: "rabbit"
+    volumes:
+      - "./cert:/cert"
+  sender:
+    depends_on: rabbit
+    restart: always
+    container_name: sender
+    build: ./sender
+    # ports:
+    #   - "5672:5672"
+    environment:
+      QUEUE_HOSTNAME: "rabbit"
+    volumes:
+      - "./cert:/cert"

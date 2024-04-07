@@ -1,9 +1,14 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"os"
+)
 
 func main() {
-	connStr := "amqp://guest:guest@localhost:5672/"
+	queueHost := os.Getenv("QUEUE_HOSTNAME")
+	connStr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHost)
 	consumer, err := NewConsumer(connStr)
 	if err != nil {
 		log.Fatalln(err)
