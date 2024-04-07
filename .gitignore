@@ -22,4 +22,5 @@ go.work
 
 cert/*
 .env
+tls-gen
 tls-gen/*
