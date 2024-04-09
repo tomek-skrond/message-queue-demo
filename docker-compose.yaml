@@ -3,7 +3,7 @@ version: "3.8"
 services:
   rabbit:
     container_name: rabbit
-    image: "rabbitmq:3.8.3-management-alpine"
+    build: ./rabbitmq
     expose:
       - "15672"
       - "5672"
@@ -16,35 +16,53 @@ services:
       - "5671:5671"
       - "15675:15675"
       - "1883:1883"
-    environment:
-#      RABBITMQ_DEFAULT_USER: "user"
-#      RABBITMQ_DEFAULT_PASS: "pass"
-      RABBITMQ_SSL_CACERTFILE: "/cert/ca_certificate.pem"
-      RABBITMQ_SSL_CERTFILE: "/cert/server_certificate.pem"
-      RABBITMQ_SSL_KEYFILE: "/cert/server_key.pem"
-      RABBITMQ_SSL_VERIFY: "verify_peer"
-      RABBITMQ_SSL_FAIL_IF_NO_PEER_CERT: "true"
+#     environment:
+# #      RABBITMQ_DEFAULT_USER: "user"
+# #      RABBITMQ_DEFAULT_PASS: "pass"
+#       RABBITMQ_SSL_CACERTFILE: "/cert/ca_certificate.pem"
+#       RABBITMQ_SSL_CERTFILE: "/cert/server_certificate.pem"
+#       RABBITMQ_SSL_KEYFILE: "/cert/server_key.pem"
+#       RABBITMQ_SSL_VERIFY: "verify_peer"
+#       RABBITMQ_SSL_FAIL_IF_NO_PEER_CERT: "true"
     volumes:
       - "./cert:/cert"
       # - "./conf/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"
-  receiver:
-    depends_on: rabbit
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:15672"]
+        interval: 15s
+        timeout: 10s
+        retries: 5
+  orders:
+    depends_on:
+      rabbit:
+        condition: service_healthy
     restart: always
-    container_name: receiver
-    build: ./receiver
-    # ports:
-    #   - "5672:5672"
+    container_name: orders
+    build: ./orders
+    ports:
+      - "8000:8000"
     environment:
       QUEUE_HOSTNAME: "rabbit"
     volumes:
       - "./cert:/cert"
-  sender:
-    depends_on: rabbit
+  delivery:
+    depends_on:
+      rabbit:
+        condition: service_healthy
     restart: always
-    container_name: sender
-    build: ./sender
-    # ports:
-    #   - "5672:5672"
+    container_name: delivery
+    build: ./delivery
+    environment:
+      QUEUE_HOSTNAME: "rabbit"
+    volumes:
+      - "./cert:/cert"
+  payments:
+    depends_on:
+      rabbit:
+        condition: service_healthy
+    restart: always
+    container_name: payments
+    build: ./payments
     environment:
       QUEUE_HOSTNAME: "rabbit"
     volumes:
