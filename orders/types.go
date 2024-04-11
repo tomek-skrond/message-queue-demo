@@ -9,10 +9,10 @@ type MealResponse struct {
 }
 
 type Order struct {
-	ID          uuid.UUID
+	ID          uuid.UUID `json:"id"`
 	Name        string
 	FoodOrdered string
-	Price       int
+	Price       int `json:"price"`
 }
 
 func NewOrder(name string, food string) (Order, error) {

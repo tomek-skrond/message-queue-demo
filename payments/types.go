@@ -5,6 +5,6 @@ import (
 )
 
 type PaymentRequest struct {
-	ID    uuid.UUID
-	Price int
+	ID    uuid.UUID `json:"id"`
+	Price int       `json:"price"`
 }

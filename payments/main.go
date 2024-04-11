@@ -7,7 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -16,6 +18,13 @@ var (
 )
 
 func main() {
+
+	go func() {
+		r := mux.NewRouter()
+		r.HandleFunc("/pay", handleAddNewPayment).Methods("POST")
+		log.Fatalln(http.ListenAndServe(":7777", r))
+	}()
+
 	queueHostName := os.Getenv("QUEUE_HOSTNAME")
 	connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
 
@@ -39,26 +48,37 @@ func main() {
 		return
 	}
 
-	r := mux.NewRouter()
-	r.HandleFunc("/pay", handlePayment).Methods("POST")
-	log.Fatalln(http.ListenAndServe(":7777", r))
-
 	select {}
 }
 
-func handlePayment(w http.ResponseWriter, r *http.Request) {
-	var paymentReq *PaymentRequest
-	err := json.NewDecoder(r.Body).Decode(paymentReq)
+func handleAddNewPayment(w http.ResponseWriter, r *http.Request) {
+	var paymentReq PaymentRequest
+	r.Header.Set("Content-Type", "application/json")
+
+	err := json.NewDecoder(r.Body).Decode(&paymentReq)
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
+
+	fmt.Println("xdfxdfxdf", paymentReq.ID)
+	payedPrice, err := strconv.Atoi(mux.Vars(r)["price"])
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+	var paymentUuid uuid.UUID
+	paymentId := []byte(mux.Vars(r)["id"])
+	paymentUuid = uuid.UUID(paymentId)
+
+	paymentReq.Price = payedPrice
+	paymentReq.ID = paymentUuid
 	fmt.Println("new payment: ")
-	PaymentDb = append(PaymentDb, paymentReq)
+	PaymentDb = append(PaymentDb, &paymentReq)
 	fmt.Println("payment DB: ", PaymentDb)
 }
 
-func checkPaymentExists(payment *PaymentRequest) bool {
+func checkPaymentIssued(payment *PaymentRequest) bool {
 	for _, r := range PaymentDb {
 		if r.ID == payment.ID {
 			return true
@@ -67,20 +87,32 @@ func checkPaymentExists(payment *PaymentRequest) bool {
 	return false
 }
 
-func processPayment(body []byte) {
-	paymentReq := &PaymentRequest{}
+func getPricePayed(pr *PaymentRequest) int {
+	for _, record := range PaymentDb {
+		if record.ID == pr.ID {
+			return record.Price
+		}
+	}
+	return 0
+}
 
-	err := json.Unmarshal(body, paymentReq)
+func processPayment(body []byte) {
+	// Take the price from orders coming from order service
+	orderPaymentReq := &PaymentRequest{}
+	err := json.Unmarshal(body, orderPaymentReq)
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
-	if checkPaymentExists(paymentReq) {
 
+	if checkPaymentIssued(orderPaymentReq) {
+		// fetch recent paid amount of money for order's ID (orderPaymentReq.ID)
+		payedPrice := getPricePayed(orderPaymentReq)
 		// fmt.Println("lelelelelele")
-		fmt.Println("price:", paymentReq.Price)
+		fmt.Println("price:", orderPaymentReq.Price)
+		realPrice := orderPaymentReq.Price
 
-		if paymentReq.Price >= paymentReq.Price {
+		if payedPrice >= realPrice {
 			queueHostName := os.Getenv("QUEUE_HOSTNAME")
 			connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
 			// fmt.Println("lelelelelele")
