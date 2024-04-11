@@ -5,7 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+
+	"github.com/gorilla/mux"
+)
+
+var (
+	PaymentDb = []*PaymentRequest{}
 )
 
 func main() {
@@ -32,55 +39,77 @@ func main() {
 		return
 	}
 
-	// r := mux.NewRouter()
-	// r.HandleFunc("/pay", handlePayment).Methods("POST")
-	// log.Fatalln(http.ListenAndServe(":7777", r))
+	r := mux.NewRouter()
+	r.HandleFunc("/pay", handlePayment).Methods("POST")
+	log.Fatalln(http.ListenAndServe(":7777", r))
 
 	select {}
 }
 
-// func handlePayment(w http.ResponseWriter, r *http.Request) {
-// 	// orderUUID := r.URL.Query().Get("id")
-// 	// paymentPrice := r.URL.Query().Get("price")
-// }
+func handlePayment(w http.ResponseWriter, r *http.Request) {
+	var paymentReq *PaymentRequest
+	err := json.NewDecoder(r.Body).Decode(paymentReq)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+	fmt.Println("new payment: ")
+	PaymentDb = append(PaymentDb, paymentReq)
+	fmt.Println("payment DB: ", PaymentDb)
+}
+
+func checkPaymentExists(payment *PaymentRequest) bool {
+	for _, r := range PaymentDb {
+		if r.ID == payment.ID {
+			return true
+		}
+	}
+	return false
+}
 
 func processPayment(body []byte) {
 	paymentReq := &PaymentRequest{}
+
 	err := json.Unmarshal(body, paymentReq)
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
-	fmt.Println("lelelelelele")
-	fmt.Println("price:", paymentReq.Price)
+	if checkPaymentExists(paymentReq) {
 
-	if paymentReq.Price >= 10 {
-		queueHostName := os.Getenv("QUEUE_HOSTNAME")
-		connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
-		fmt.Println("lelelelelele")
+		// fmt.Println("lelelelelele")
+		fmt.Println("price:", paymentReq.Price)
 
-		deliveryConfig := &RabbitMQConfig{
-			ConnStr:           connstr,
-			QueueName:         "order_processing",
-			QueueExchange:     "payment_x_delivery",
-			QueueRoutingKey:   "payment_to_delivery",
-			QueueExchangeType: "direct",
-		}
+		if paymentReq.Price >= paymentReq.Price {
+			queueHostName := os.Getenv("QUEUE_HOSTNAME")
+			connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
+			// fmt.Println("lelelelelele")
 
-		deliveryClient, err := NewRabbitMQClient(*deliveryConfig)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		defer deliveryClient.Close()
+			deliveryConfig := &RabbitMQConfig{
+				ConnStr:           connstr,
+				QueueName:         "order_processing",
+				QueueExchange:     "payment_x_delivery",
+				QueueRoutingKey:   "payment_to_delivery",
+				QueueExchangeType: "direct",
+			}
 
-		err = deliveryClient.Publish(context.Background(),
-			deliveryClient.QueueExchange,
-			deliveryClient.QueueRoutingKey,
-			body,
-		)
-		if err != nil {
-			log.Fatalln(err)
-			return
+			deliveryClient, err := NewRabbitMQClient(*deliveryConfig)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			defer deliveryClient.Close()
+
+			err = deliveryClient.Publish(context.Background(),
+				deliveryClient.QueueExchange,
+				deliveryClient.QueueRoutingKey,
+				body,
+			)
+			if err != nil {
+				log.Fatalln(err)
+				return
+			}
+		} else {
+			fmt.Println("Not enough money")
 		}
 	}
 }

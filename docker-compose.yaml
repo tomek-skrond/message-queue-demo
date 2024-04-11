@@ -63,6 +63,8 @@ services:
     restart: always
     container_name: payments
     build: ./payments
+    ports:
+      - "7777:7777"
     environment:
       QUEUE_HOSTNAME: "rabbit"
     volumes:
