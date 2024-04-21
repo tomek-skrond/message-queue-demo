@@ -3,65 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Payment</title>
+    <title>Order Management</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Your Order Details</h1>
-    <div id="orderDetails"></div>
-    <button id="payButton">Pay Now</button>
+    <h1>Order Management</h1>
+    
+    <h2>Current Orders</h2>
+    <ul>
+        {{ range . }}
+            <li>{{ .Food }} - ${{ .Price }}</li>
+        {{ end }}
+    </ul>
+    
+    <form id="orderForm" action="http://localhost:8000/order" method="post">
+        <button type="submit">Order Random Food</button>
+    </form>
+    
+    <h2>Payment</h2>
+    <form id="paymentForm">
+        <label for="priceInput">Enter Price: $</label>
+        <input type="number" id="priceInput" name="price">
+        <button type="button" onclick="pay()">Pay</button>
+    </form>
 
+    <div id="deliveryStatus"></div>
+
+    <script src="https://unpkg.com/htmx.org/dist/htmx.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Fetch order details from backend service
-            fetchOrderDetails();
 
-            // Add event listener to pay button
-            document.getElementById('payButton').addEventListener('click', function() {
-                // Call payment service when pay button is clicked
-                callPaymentService();
-            });
-        });
-
-        function fetchOrderDetails() {
-            // Fetch order details from backend service
-            fetch('http://localhost:8000/order')
-                .then(response => response.json())
-                .then(data => {
-                    displayOrderDetails(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching order details:', error);
-                });
-        }
-
-        function displayOrderDetails(order) {
-            // Display order details on the webpage
-            const orderDetailsContainer = document.getElementById('orderDetails');
-            orderDetailsContainer.innerHTML = `
-                <p><strong>Order ID:</strong> ${order.id}</p>
-                <p><strong>Item:</strong> ${order.item}</p>
-                <p><strong>Amount:</strong> ${order.amount}</p>
-            `;
-        }
-
-        function callPaymentService() {
-            // Call payment service to process the payment
-            fetch('http://localhost:8001/payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ orderId: '123', amount: 100 }) // Hardcoded for simplicity
+        
+        function order() {
+            fetch("http://localhost:8000/order", {
+                method: "POST",
             })
-            .then(response => {
-                if (response.ok) {
-                    console.log('Payment successful');
-                } else {
-                    console.error('Payment failed');
-                }
+            .then(() => {
+                // Refresh orders list
+                fetchOrders();
             })
             .catch(error => {
-                console.error('Error calling payment service:', error);
+                console.error("Error:", error);
+                alert("An error occurred while ordering food");
+            });
+        }
+        function pay() {
+            var price = document.getElementById("priceInput").value;
+            var orderId = prompt("Enter Order ID:");
+            if (orderId !== null && orderId !== "") {
+                fetch("http://localhost:7777/pay", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        id: orderId,
+                        price: price,
+                    }),
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert("Payment successful");
+                        fetch("/delivery?id=" + orderId)
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById("deliveryStatus").innerHTML = "<p>Status: " + data.status + "</p><p>Details: " + data.details + "</p>";
+                        });
+                    } else {
+                        alert("Payment failed");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while processing payment");
+                });
+            }
+        }
+
+        function fetchOrders() {
+            fetch("http://localhost:8080/order")
+            .then(response => response.json())
+            .then(data => {
+                var ordersList = document.getElementById("currentOrders");
+                ordersList.innerHTML = "";
+                data.forEach(order => {
+                    var listItem = document.createElement("li");
+                    listItem.textContent = order.food + " - $" + order.price;
+                    var detailsButton = document.createElement("button");
+                    detailsButton.textContent = "View Details";
+                    detailsButton.onclick = function() {
+                        viewOrderDetails(order);
+                    };
+                    listItem.appendChild(detailsButton);
+                    ordersList.appendChild(listItem);
+                });
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred while fetching orders");
             });
         }
     </script>

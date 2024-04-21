@@ -29,23 +29,18 @@ func NewAPIServer(lp string, db *Storage) (*APIServer, error) {
 	}, nil
 }
 
-func (s *APIServer) handleAddPayment(w http.ResponseWriter, r *http.Request) {
-	var paymentReq *PaymentRequest
-	err := json.NewDecoder(r.Body).Decode(&paymentReq)
-	if err != nil {
-		log.Fatalln(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal server error"))
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(toJSON(""))
-}
-
-func toJSON(obj interface{}) []byte {
-	data, _ := json.Marshal(obj)
-	return data
-}
+// func (s *APIServer) handleAddPayment(w http.ResponseWriter, r *http.Request) {
+// 	var paymentReq *PaymentRequest
+// 	err := json.NewDecoder(r.Body).Decode(&paymentReq)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		w.Write([]byte("Internal server error"))
+// 		return
+// 	}
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write([]byte(""))
+// }
 
 func (s *APIServer) insertMessagesIntoDB(msg []byte) error {
 	var newPaymentReq PaymentRequest

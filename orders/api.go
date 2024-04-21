@@ -34,6 +34,7 @@ func (s *APIServer) Start() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/order", s.handleOrder).Methods("POST")
+	r.HandleFunc("/order", s.handleGetOrder).Methods("GET")
 
 	log.Fatalln(http.ListenAndServe(s.listenPort, r))
 }
@@ -43,6 +44,21 @@ func toJSON(obj interface{}) []byte {
 	return data
 }
 
+func (s *APIServer) handleGetOrder(w http.ResponseWriter, r *http.Request) {
+	orders, err := s.DB.GetAllOrders()
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// defer s.mqsession.Close()
+
+	resp := toJSON(orders)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
+
+}
 func (s *APIServer) pushToOrderPaymentsQueue(newOrder Order) error {
 
 	jsonOrder := toJSON(newOrder)

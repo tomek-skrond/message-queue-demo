@@ -53,3 +53,12 @@ func (s *Storage) CreateOrder(o *Order) error {
 	}
 	return nil
 }
+
+func (s *Storage) GetAllOrders() ([]*Order, error) {
+	var ord []*Order
+	if err := s.db.Find(&ord).Error; err != nil {
+		return nil, err
+	}
+	fmt.Println(ord)
+	return ord, nil
+}
