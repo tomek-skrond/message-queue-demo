@@ -9,10 +9,10 @@ type MealResponse struct {
 }
 
 type Order struct {
-	ID          uuid.UUID
-	Name        string
-	FoodOrdered string
-	Price       int
+	ID          uuid.UUID `gorm:"primary_key"`
+	Name        string    `json:"name"`
+	FoodOrdered string    `json:"food_ordered"`
+	Price       int       `json:"price"`
 }
 
 func NewOrder(name string, food string) (Order, error) {

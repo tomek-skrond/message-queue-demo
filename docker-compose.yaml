@@ -32,16 +32,33 @@ services:
         interval: 15s
         timeout: 10s
         retries: 5
+  order_db:
+    container_name: order_db
+    restart: always
+    image: postgres:14
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_ORDER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_ORDER}
+      POSTGRES_DB: ${POSTGRES_DB_ORDER}
   orders:
     depends_on:
       rabbit:
         condition: service_healthy
+      order_db:
+        condition: service_started
     restart: always
     container_name: orders
     build: ./orders
     ports:
       - "8000:8000"
     environment:
+      POSTGRES_USER: ${POSTGRES_USER_ORDER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_ORDER}
+      POSTGRES_HOST: ${POSTGRES_HOST_ORDER}
+      POSTGRES_DB: ${POSTGRES_DB_ORDER}
+      SSLMODE: ${SSLMODE}
       QUEUE_HOSTNAME: "rabbit"
     volumes:
       - "./cert:/cert"
@@ -56,10 +73,22 @@ services:
       QUEUE_HOSTNAME: "rabbit"
     volumes:
       - "./cert:/cert"
+  payment_db:
+    container_name: payment_db
+    restart: always
+    image: postgres:14
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_PAYMENT}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_PAYMENT}
+      POSTGRES_DB: ${POSTGRES_DB_PAYMENT}
   payments:
     depends_on:
       rabbit:
         condition: service_healthy
+      order_db:
+        condition: service_started
     restart: always
     container_name: payments
     build: ./payments
@@ -67,5 +96,10 @@ services:
       - "7777:7777"
     environment:
       QUEUE_HOSTNAME: "rabbit"
+      POSTGRES_USER: ${POSTGRES_USER_PAYMENT}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_PAYMENT}
+      POSTGRES_HOST: ${POSTGRES_HOST_PAYMENT}
+      POSTGRES_DB: ${POSTGRES_DB_PAYMENT}
+      SSLMODE: ${SSLMODE}
     volumes:
       - "./cert:/cert"

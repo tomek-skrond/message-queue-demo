@@ -54,6 +54,7 @@ func fetchOrders() (string, error) {
 func fetchPrice() int {
 	return rand.IntN(60) + 1
 }
+
 func MarshalBody[T any](b T) ([]byte, error) {
 	body, err := json.Marshal(b)
 	if err != nil {

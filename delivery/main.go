@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type Order struct {
@@ -21,29 +23,12 @@ func startDelivery(body []byte) {
 }
 
 func main() {
-
+	lp := ":9999"
 	queueHostName := os.Getenv("QUEUE_HOSTNAME")
 	connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
+	fmt.Println(connstr)
 
-	config := &RabbitMQConfig{
-		ConnStr:           connstr,
-		QueueName:         "order_processing",
-		QueueExchange:     "payment_x_delivery",
-		QueueRoutingKey:   "payment_to_delivery",
-		QueueConsumerName: "payment_consumer",
-		QueueExchangeType: "direct",
-	}
+	r := mux.NewRouter()
 
-	client, err := NewRabbitMQClient(*config)
-	if err != nil {
-		log.Fatalf("Error creating RabbitMQ client: %s", err)
-	}
-	defer client.Close()
-
-	err = client.Consume(config.QueueName, config.QueueConsumerName, startDelivery)
-	if err != nil {
-		log.Fatalf("Error consuming delivery queue: %s", err)
-	}
-
-	select {}
+	log.Fatalln(http.ListenAndServe(lp, r))
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,105 +10,123 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var (
-	PaymentDb = []*PaymentRequest{}
-)
-
 func main() {
+	lp := ":7777"
 	queueHostName := os.Getenv("QUEUE_HOSTNAME")
 	connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
+	fmt.Println(connstr)
 
-	config := &RabbitMQConfig{
-		ConnStr:           connstr,
-		QueueName:         "order_processing",
-		QueueRoutingKey:   "order_to_payment",
-		QueueExchange:     "order_x_payment",
-		QueueExchangeType: "direct",
-	}
-
-	client, err := NewRabbitMQClient(*config)
+	db, err := NewStorage()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer client.Close()
-
-	err = client.Consume(config.QueueName, config.QueueConsumerName, processPayment)
+	s, err := NewAPIServer(lp, db)
 	if err != nil {
 		log.Fatalln(err)
-		return
 	}
-
-	r := mux.NewRouter()
-	r.HandleFunc("/pay", handlePayment).Methods("POST")
-	log.Fatalln(http.ListenAndServe(":7777", r))
-
-	select {}
+	s.Start()
 }
 
-func handlePayment(w http.ResponseWriter, r *http.Request) {
+func (s *APIServer) handleAddPayment(w http.ResponseWriter, r *http.Request) {
 	var paymentReq *PaymentRequest
-	err := json.NewDecoder(r.Body).Decode(paymentReq)
+	err := json.NewDecoder(r.Body).Decode(&paymentReq)
 	if err != nil {
 		log.Fatalln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
 		return
 	}
-	fmt.Println("new payment: ")
-	PaymentDb = append(PaymentDb, paymentReq)
-	fmt.Println("payment DB: ", PaymentDb)
+	w.WriteHeader(http.StatusOK)
+	w.Write(toJSON(""))
 }
 
-func checkPaymentExists(payment *PaymentRequest) bool {
-	for _, r := range PaymentDb {
-		if r.ID == payment.ID {
-			return true
+func toJSON(obj interface{}) []byte {
+	data, _ := json.Marshal(obj)
+	return data
+}
+
+func (s *APIServer) Start() {
+	r := mux.NewRouter()
+	r.HandleFunc("/pay", s.handleProcessPayment).Methods("POST")
+	log.Fatalln(http.ListenAndServe(s.listenPort, r))
+}
+
+func (s *APIServer) handleProcessPayment(w http.ResponseWriter, r *http.Request) {
+	// decode payment from user
+	var paymentComing *PaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&paymentComing); err != nil {
+		log.Fatalln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
+		return
+	}
+
+	isPayed, err := s.isAlreadyPaid(paymentComing)
+	if err != nil {
+		log.Fatalln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
+		return
+	}
+
+	if !isPayed {
+		realPrice, err := s.checkPrice(paymentComing)
+		if err != nil {
+			log.Fatalln(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal server error"))
+			return
 		}
-	}
-	return false
-}
-
-func processPayment(body []byte) {
-	paymentReq := &PaymentRequest{}
-
-	err := json.Unmarshal(body, paymentReq)
-	if err != nil {
-		log.Fatalln(err)
-		return
-	}
-	if checkPaymentExists(paymentReq) {
-
-		// fmt.Println("lelelelelele")
-		fmt.Println("price:", paymentReq.Price)
-
-		if paymentReq.Price >= paymentReq.Price {
-			queueHostName := os.Getenv("QUEUE_HOSTNAME")
-			connstr := fmt.Sprintf("amqp://guest:guest@%s:5672/", queueHostName)
-			// fmt.Println("lelelelelele")
-
-			deliveryConfig := &RabbitMQConfig{
-				ConnStr:           connstr,
-				QueueName:         "order_processing",
-				QueueExchange:     "payment_x_delivery",
-				QueueRoutingKey:   "payment_to_delivery",
-				QueueExchangeType: "direct",
-			}
-
-			deliveryClient, err := NewRabbitMQClient(*deliveryConfig)
-			if err != nil {
+		if paymentComing.Price >= realPrice {
+			if err := s.DB.updatePaymentStatus(paymentComing, "paid"); err != nil {
 				log.Fatalln(err)
-			}
-			defer deliveryClient.Close()
-
-			err = deliveryClient.Publish(context.Background(),
-				deliveryClient.QueueExchange,
-				deliveryClient.QueueRoutingKey,
-				body,
-			)
-			if err != nil {
-				log.Fatalln(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Internal server error"))
 				return
 			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("success"))
+			return
 		} else {
-			fmt.Println("Not enough money")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("not enough money"))
+			return
 		}
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("order is already paid for"))
+}
+
+func (s *APIServer) isAlreadyPaid(payment *PaymentRequest) (bool, error) {
+	payments, err := s.DB.GetPayments()
+	if err != nil {
+		return false, err
+	}
+
+	for _, p := range payments {
+		if payment.ID == p.ID {
+			if p.Status == "paid" {
+				return true, nil
+			}
+			if p.Status == "pending" {
+				return false, nil
+			}
+			return false, fmt.Errorf("invalid status")
+		}
+	}
+	return false, fmt.Errorf("payment not found")
+}
+func (s *APIServer) checkPrice(payment *PaymentRequest) (int, error) {
+	payments, err := s.DB.GetPayments()
+	if err != nil {
+		return -1, err
+	}
+	for _, p := range payments {
+		if p.ID == payment.ID {
+			//returns real price for order
+			return p.Price, nil
+		}
+	}
+	return -1, fmt.Errorf("object not found")
 }
