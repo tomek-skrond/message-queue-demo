@@ -42,6 +42,27 @@ services:
       POSTGRES_USER: ${POSTGRES_USER_ORDER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_ORDER}
       POSTGRES_DB: ${POSTGRES_DB_ORDER}
+  delivery_db:
+    container_name: delivery_db
+    restart: on-failure
+    image: postgres:14
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_DELIVERY}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_DELIVERY}
+      POSTGRES_DB: ${POSTGRES_DB_DELIVERY}
+  payment_db:
+    container_name: payment_db
+    restart: on-failure
+    image: postgres:14
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_PAYMENT}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_PAYMENT}
+      POSTGRES_DB: ${POSTGRES_DB_PAYMENT}
+
   orders:
     depends_on:
       rabbit:
@@ -62,27 +83,28 @@ services:
       QUEUE_HOSTNAME: "rabbit"
     volumes:
       - "./cert:/cert"
-  delivery:
+
+  deliveries:
     depends_on:
       rabbit:
         condition: service_healthy
+      delivery_db:
+        condition: service_started
     restart: on-failure
-    container_name: delivery
+    container_name: deliveries
     build: ./delivery
+    ports:
+      - "9999:9999"
     environment:
       QUEUE_HOSTNAME: "rabbit"
+      POSTGRES_USER: ${POSTGRES_USER_DELIVERY}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_DELIVERY}
+      POSTGRES_HOST: ${POSTGRES_HOST_DELIVERY}
+      POSTGRES_DB: ${POSTGRES_DB_DELIVERY}
+      SSLMODE: ${SSLMODE}
     volumes:
       - "./cert:/cert"
-  payment_db:
-    container_name: payment_db
-    restart: on-failure
-    image: postgres:14
-    ports:
-      - "5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER_PAYMENT}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_PAYMENT}
-      POSTGRES_DB: ${POSTGRES_DB_PAYMENT}
+  
   payments:
     depends_on:
       rabbit:

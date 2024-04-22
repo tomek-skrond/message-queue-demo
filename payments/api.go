@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type APIServer struct {
@@ -107,8 +109,80 @@ func (s *APIServer) checkForNewMessages() {
 
 }
 
+func (s *APIServer) monitorForSuccessfulPayments() {
+	// var forever chan struct{}
+	go func() {
+		for {
+			payments, err := s.DB.GetPayments()
+			if err != nil {
+				log.Println(err)
+			}
+			for _, p := range payments {
+				if p.Status == "paid" && !p.SentToDelivery {
+					log.Println("pass paid order to delivery", p)
+					p.SentToDelivery = true
+					s.DB.UpdatePaymentByID(p)
+
+					s.publishSuccessfulPayment(p)
+				}
+			}
+			time.Sleep(5 * time.Second)
+		}
+
+	}()
+
+	// <-forever
+}
+
+func (s *APIServer) publishSuccessfulPayment(p *PaymentRequest) error {
+
+	jsonPayment, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	// go func() {
+	// 	select {
+	// 	case pay := <-paymentChan:
+	// 		if err := json.Unmarshal(pay, &jsonPayment); err != nil {
+	// 			log.Println("error deserializing: ", err)
+	// 		}
+
+	// 	}
+	// }()
+
+	q, err := s.mqsession.channel.QueueDeclare(
+		"payment_delivery_queue",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fmt.Println("Publishing to:", q.Name)
+
+	if err := s.mqsession.channel.Publish(
+		"",
+		"payment_delivery_queue",
+		false,
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         jsonPayment,
+		},
+	); err != nil {
+		log.Println(err)
+	}
+	return nil
+}
+
 func (s *APIServer) Start() {
 	go s.checkForNewMessages()
+	go s.monitorForSuccessfulPayments()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/pay", s.handleProcessPayment).Methods("POST")

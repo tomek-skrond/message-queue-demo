@@ -38,6 +38,7 @@ func fetchOrders() (string, error) {
 		return "", err
 	}
 
+	fmt.Println(mealResp.Meals[0].StrMeal)
 	// Extract the value of 'strMeal' if available
 	if len(mealResp.Meals) > 0 {
 		mealName := mealResp.Meals[0].StrMeal

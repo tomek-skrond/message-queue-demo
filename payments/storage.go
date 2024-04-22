@@ -70,6 +70,7 @@ func (s *Storage) UpdatePaymentByID(p *PaymentRequest) error {
 	}
 	return nil
 }
+
 func (s *Storage) updatePaymentStatus(p *PaymentRequest, status string) error {
 	p.Status = status
 	p.PricePaid = p.Price

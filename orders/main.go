@@ -13,10 +13,10 @@ func main() {
 	}
 	s, err := NewAPIServer(listenPort, db)
 	if err != nil {
-		log.Fatalln()
+		log.Fatalln(err)
 	}
 
-	go s.Start()
+	s.Start()
 
 	select {}
 }
