@@ -125,3 +125,31 @@ services:
       SSLMODE: ${SSLMODE}
     volumes:
       - "./cert:/cert"
+
+  ordernotifier:
+    depends_on:
+      rabbit:
+        condition: service_healthy
+      order_db:
+        condition: service_started
+    restart: on-failure
+    container_name: ordernotifier
+    build: ./order-notifier
+    environment:
+      QUEUE_HOSTNAME: "rabbit"
+    volumes:
+      - "./cert:/cert"
+
+  paymentnotifier:
+    depends_on:
+      rabbit:
+        condition: service_healthy
+      order_db:
+        condition: service_started
+    restart: on-failure
+    container_name: paymentnotifier
+    build: ./payment-notifier
+    environment:
+      QUEUE_HOSTNAME: "rabbit"
+    volumes:
+      - "./cert:/cert"

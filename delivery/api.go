@@ -46,21 +46,57 @@ func (s *APIServer) handleGetDeliveries(w http.ResponseWriter, r *http.Request) 
 func (s *APIServer) checkForNewMessages() {
 	// messages := make(chan []byte)
 
+	// q, err := s.mqsession.channel.QueueDeclare(
+	// 	"payment_delivery_queue",
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	xchange := "payments"
+	if err := s.mqsession.channel.ExchangeDeclare(
+		xchange,  // name
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	); err != nil {
+		log.Println(err)
+	}
+
+	fmt.Println("consuming from exchange:", xchange)
+
 	q, err := s.mqsession.channel.QueueDeclare(
-		"payment_delivery_queue",
-		true,
-		false,
-		false,
-		false,
-		nil,
+		"",    // name
+		false, // durable
+		false, // delete when unused
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 	if err != nil {
 		log.Println(err)
 	}
+	fmt.Println("consuming from queue:", q.Name)
 
-	fmt.Println("consuming from q:", q)
+	if err := s.mqsession.channel.QueueBind(
+		q.Name,  // queue name
+		"",      // routing key
+		xchange, // exchange
+		false,
+		nil,
+	); err != nil {
+		log.Println(err)
+	}
+
 	deliveries, err := s.mqsession.channel.Consume(
-		"payment_delivery_queue",
+		q.Name,
 		"",
 		true,
 		false,

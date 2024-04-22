@@ -62,10 +62,50 @@ func (s *APIServer) handleGetOrder(w http.ResponseWriter, r *http.Request) {
 func (s *APIServer) pushToOrderPaymentsQueue(newOrder Order) error {
 
 	jsonOrder := toJSON(newOrder)
+	// q, err := s.mqsession.channel.QueueDeclare(
+	// 	"order_payment_queue",
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return err
+	// }
+	// fmt.Println("queue used:", q.Name, q)
+	err := s.mqsession.channel.ExchangeDeclare(
+		"orders",
+		"fanout",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
+	// if err := s.mqsession.channel.Publish(
+	// 	"",
+	// 	"order_payment_queue",
+	// 	false,
+	// 	false,
+	// 	amqp.Publishing{
+	// 		DeliveryMode: amqp.Persistent,
+	// 		ContentType:  "application/json",
+	// 		Body:         jsonOrder,
+	// 	},
+	// ); err != nil {
+	// 	log.Println(err)
+	// 	return err
+	// }
 	if err := s.mqsession.channel.Publish(
+		"orders",
 		"",
-		"order_payment_queue",
 		false,
 		false,
 		amqp.Publishing{
@@ -77,7 +117,8 @@ func (s *APIServer) pushToOrderPaymentsQueue(newOrder Order) error {
 		log.Println(err)
 		return err
 	}
-	log.Println("published to queue:", newOrder)
+
+	log.Println("published to orders exchange:", newOrder)
 
 	return nil
 }

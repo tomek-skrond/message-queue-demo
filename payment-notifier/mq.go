@@ -31,6 +31,20 @@ func NewMQSession() (*MQSession, error) {
 		return nil, err
 	}
 
+	q, err := ch.QueueDeclare(
+		"order_payment_queue",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	fmt.Println("queue used:", q.Name, q)
+
 	return &MQSession{conn, ch}, nil
 }
 

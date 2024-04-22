@@ -61,11 +61,36 @@ func (s *APIServer) insertMessagesIntoDB(msg []byte) error {
 func (s *APIServer) checkForNewMessages() {
 	// messages := make(chan []byte)
 
-	q, err := s.mqsession.channel.QueueDeclare(
-		"order_payment_queue",
+	// q, err := s.mqsession.channel.QueueDeclare(
+	// 	"order_payment_queue",
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	xchange := "orders"
+	if err := s.mqsession.channel.ExchangeDeclare(
+		xchange,
+		"fanout",
 		true,
 		false,
 		false,
+		false,
+		nil,
+	); err != nil {
+		log.Println(err)
+	}
+	fmt.Println("consuming from exchange:", xchange)
+
+	q, err := s.mqsession.channel.QueueDeclare(
+		"",
+		false,
+		false,
+		true,
 		false,
 		nil,
 	)
@@ -73,9 +98,19 @@ func (s *APIServer) checkForNewMessages() {
 		log.Println(err)
 	}
 
-	fmt.Println("consuming from q:", q)
+	if err := s.mqsession.channel.QueueBind(
+		q.Name,  // queue name
+		"",      // routing key
+		xchange, // exchange
+		false,
+		nil,
+	); err != nil {
+		log.Println(err)
+
+	}
+
 	deliveries, err := s.mqsession.channel.Consume(
-		"order_payment_queue",
+		q.Name,
 		"",
 		true,
 		false,
@@ -140,33 +175,33 @@ func (s *APIServer) publishSuccessfulPayment(p *PaymentRequest) error {
 	if err != nil {
 		return err
 	}
-	// go func() {
-	// 	select {
-	// 	case pay := <-paymentChan:
-	// 		if err := json.Unmarshal(pay, &jsonPayment); err != nil {
-	// 			log.Println("error deserializing: ", err)
-	// 		}
 
-	// 	}
-	// }()
-
-	q, err := s.mqsession.channel.QueueDeclare(
-		"payment_delivery_queue",
-		true,
-		false,
-		false,
-		false,
-		nil,
+	// q, err := s.mqsession.channel.QueueDeclare(
+	// 	"payment_delivery_queue",
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	xchange := "payments"
+	err = s.mqsession.channel.ExchangeDeclare(
+		xchange,  // name
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
 	)
-	if err != nil {
-		log.Println(err)
-	}
-
-	fmt.Println("Publishing to:", q.Name)
+	fmt.Println("Publishing to exchange:", xchange)
 
 	if err := s.mqsession.channel.Publish(
+		xchange,
 		"",
-		"payment_delivery_queue",
 		false,
 		false,
 		amqp.Publishing{
