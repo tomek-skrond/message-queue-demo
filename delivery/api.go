@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -74,22 +76,37 @@ func (s *APIServer) checkForNewMessages() {
 
 	go func() {
 		for msg := range deliveries {
-			log.Println("received msg:", func(b []byte) Delivery {
-				var d Delivery
-				_ = json.Unmarshal(b, &d)
-				return d
-			}(msg.Body))
+			var d *Delivery
+			if err := json.Unmarshal(msg.Body, &d); err != nil {
+				log.Println(err)
+				return
+			}
 
 			msg := msg.Body
 			if err := s.insertMessagesIntoDB(msg); err != nil {
 				log.Println(err)
+				return
 			}
+
+			s.startDelivery(d)
 		}
 	}()
 
 	log.Println("[*] Waiting for messages.")
 	<-forever
 
+}
+
+func (s *APIServer) startDelivery(d *Delivery) {
+	log.Println("[DELIVERY] Delivery started for order id:", d.ID)
+	log.Println("[DELIVERY] Status: waiting for the delivery guy...")
+	time.Sleep(time.Duration(time.Duration(rand.Intn(5)).Seconds())) //what the f
+	log.Println("[DELIVERY] Status: successful")
+	d.Delivered = true
+	if err := s.DB.UpdateDelivery(d); err != nil {
+		log.Println("Delivery error", err)
+		return
+	}
 }
 
 func (s *APIServer) insertMessagesIntoDB(msg []byte) error {
@@ -103,12 +120,5 @@ func (s *APIServer) insertMessagesIntoDB(msg []byte) error {
 		return err
 	}
 
-	return nil
-}
-
-func (s *Storage) CreateDelivery(delivery *Delivery) error {
-	if err := s.db.Create(delivery).Error; err != nil {
-		return err
-	}
 	return nil
 }

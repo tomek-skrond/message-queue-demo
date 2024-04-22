@@ -47,3 +47,17 @@ func NewStorage() (*Storage, error) {
 	}, nil
 
 }
+
+func (s *Storage) CreateDelivery(delivery *Delivery) error {
+	if err := s.db.Create(delivery).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Storage) UpdateDelivery(delivery *Delivery) error {
+	if err := s.db.Where("id = ?", delivery.ID).Updates(delivery).Error; err != nil {
+		return err
+	}
+	return nil
+}

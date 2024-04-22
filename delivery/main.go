@@ -13,11 +13,6 @@ type Order struct {
 	Price       int
 }
 
-func startDelivery(body []byte) {
-	// Simulate delivery process
-	log.Println("Delivery process started for item: ", string(body))
-}
-
 func main() {
 	lp := ":9999"
 
