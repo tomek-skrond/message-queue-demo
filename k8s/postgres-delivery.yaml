@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-db
+spec:
+  replicas: 1 # Adjust as needed
+  selector:
+    matchLabels:
+      app: delivery-db
+  template:
+    metadata:
+      labels:
+        app: delivery-db
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:14
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_DB
+          value: "delivery"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-db # Sets service name
+  labels:
+    app: delivery-db # Labels and Selectors
+spec:
+  selector:
+    app: delivery-db
+  ports:
+    - protocol: TCP
+      port: 5432 # Sets port to run the postgres application
+      targetPort: 5432

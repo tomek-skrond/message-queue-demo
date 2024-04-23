@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+spec:
+  replicas: 1 # Adjust as needed
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      containers:
+      - name: orders
+        image: tomekskr/orders:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: QUEUE_HOSTNAME
+          value: "rabbitmq"
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_HOST
+          value: "order-db"
+        - name: POSTGRES_DB
+          value: "orders"
+        - name: SSLMODE
+          value: "disable"

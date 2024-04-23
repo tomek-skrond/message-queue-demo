@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+spec:
+  replicas: 1 # Adjust as needed
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      containers:
+      - name: payments
+        image: tomekskr/payments:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: QUEUE_HOSTNAME
+          value: "rabbitmq"
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_HOST
+          value: "payment-db"
+        - name: POSTGRES_DB
+          value: "payments"
+        - name: SSLMODE
+          value: "disable"

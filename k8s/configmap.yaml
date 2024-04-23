@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config-orders
+data:
+  postgres-url-orders: order-db
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config-payments
+data:
+  postgres-url-payments: payment-db
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config-delivery
+data:
+  postgres-url-delivery: delivery-db

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery
+spec:
+  replicas: 1 # Adjust as needed
+  selector:
+    matchLabels:
+      app: delivery
+  template:
+    metadata:
+      labels:
+        app: delivery
+    spec:
+      containers:
+      - name: deliverys
+        image: tomekskr/delivery:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: QUEUE_HOSTNAME
+          value: "rabbitmq"
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_HOST
+          value: "delivery-db"
+        - name: POSTGRES_DB
+          value: "delivery"
+        - name: SSLMODE
+          value: "dis
